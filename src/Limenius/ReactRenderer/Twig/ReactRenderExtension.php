@@ -71,7 +71,7 @@ class ReactRenderExtension extends \Twig_Extension
     public function reactRenderComponent($componentName, array $options = array())
     {
         $props = isset($options['props']) ? $options['props'] : array();
-        $propsArray = is_array($props) ? $props : json_decode($props);
+        $propsArray = is_array($props) ? $props : $this->jsonDecode($props);
 
         $str = '';
         $data = array(
@@ -88,14 +88,14 @@ class ReactRenderExtension extends \Twig_Extension
                 '<script type="application/json" class="js-react-on-rails-component" data-component-name="%s" data-dom-id="%s">%s</script>',
                 $data['component_name'],
                 $data['dom_id'],
-                json_encode($data['props'])
+                $this->jsonEncode($data['props'])
             );
         }
         $str .= '<div id="'.$data['dom_id'].'">';
         if ($this->shouldRenderServerSide($options)) {
             $serverSideStr = $this->renderer->render(
                 $data['component_name'],
-                json_encode($data['props']),
+                $this->jsonEncode($data['props']),
                 $data['dom_id'],
                 $this->registeredStores,
                 $data['trace']
@@ -115,7 +115,7 @@ class ReactRenderExtension extends \Twig_Extension
      */
     public function reactReduxStore($storeName, $props)
     {
-        $propsString = is_array($props) ? json_encode($props) : $props;
+        $propsString = is_array($props) ? $this->jsonEncode($props) : $props;
         $this->registeredStores[$storeName] = $propsString;
 
 
@@ -194,10 +194,38 @@ class ReactRenderExtension extends \Twig_Extension
 
             return sprintf(
                 '<script type="application/json" id="js-react-on-rails-context">%s</script>',
-                json_encode($this->contextProvider->getContext(false))
+                $this->jsonEncode($this->contextProvider->getContext(false))
             );
         }
 
         return '';
+    }
+
+    protected function jsonEncode($input)
+    {
+        $json = json_encode($input);
+        if (json_last_error() !== null) {
+            throw new \Limenius\ReactRenderer\Exception\PropsEncodeException(
+                sprintf(
+                    'JSON could not be encoded, Error Message was %s',
+                    json_last_error_msg()
+                )
+            );
+        }
+        return $json;
+    }
+
+    protected function jsonDecode($input)
+    {
+        $json = json_decode($input);
+        if (json_last_error() !== null) {
+            throw new \Limenius\ReactRenderer\Exception\PropsDecodeException(
+                sprintf(
+                    'JSON could not be decoded, Error Message was %s',
+                    json_last_error_msg()
+                )
+            );
+        }
+        return $json;
     }
 }
